@@ -3,6 +3,7 @@
 Projekt im Modul **DevOps**  
 
 Aufbau einer vollständigen CI/CD-Pipeline für eine Spring Boot Anwendung mit REST API
+
 **eine einfache ToDo WebApp**
 
 ## Tech Stack
@@ -15,16 +16,35 @@ Aufbau einer vollständigen CI/CD-Pipeline für eine Spring Boot Anwendung mit R
 - Docker 
 - GitHub Actions
 - SonarQube
-
-## API
-
-GET /api/tasks  
-→ liefert Demo-Daten im JSON-Format
+- MySQL
+- PHPMyAdmin
+- Nginx
 
 ## Anwendung starten
 
-```bash
-./mvnw spring-boot:run
+.env.example --> .env
+    - Variablen beliebig definieren
 
-Server läuft unter:
+```bash
+git clone git@github.com:omerkulaksiz/DevOps-ToDo.git
+
+./mvnw clean package -DskipTests
+
+docker compose up -d --build
+
+API läuft unter:
 http://localhost:8080/api/tasks
+
+DB läuft unter:
+http://localhost:3306
+
+WebServer läuft unter:
+http://localhost:8080
+
+PHPMyAdmin läuft unter:
+http://localhost:9999
+
+
+
+
+
