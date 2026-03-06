@@ -89,11 +89,11 @@
             </div>
 
             <div class="timer-ui" id="timer-ui" aria-label="Pomodoro-Timer">
-                <!--
-                  aria-live="off" während Timer läuft:
-                  Screen-Reader würde bei jeder Sekunde vorlesen — unerwünscht.
-                  Nur beim Ablauf wird aria-live="assertive" gesetzt (via JS).
-                -->
+                <div class="timer-modes">
+                    <button class="timer-mode-btn" data-mode="focus"      aria-label="Fokus-Session (25 min)">Fokus</button>
+                    <button class="timer-mode-btn" data-mode="shortBreak" aria-label="Kurzpause (5 min)">Kurz</button>
+                    <button class="timer-mode-btn" data-mode="longBreak"  aria-label="Langpause (15 min)">Lang</button>
+                </div>
                 <span id="timer-display"
                       class="timer-display"
                       role="timer"
@@ -108,6 +108,9 @@
                     </button>
                     <button class="timer-btn" id="btn-timer-reset" aria-label="Timer zurücksetzen">
                         <i data-lucide="refresh-cw" width="18" height="18" aria-hidden="true"></i>
+                    </button>
+                    <button class="timer-btn" id="btn-timer-settings" aria-label="Timer-Einstellungen öffnen">
+                        <i data-lucide="settings-2" width="16" height="16" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
@@ -254,21 +257,54 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════
-     BESTÄTIGUNGS-DIALOG — Aufgabe löschen
-     Eigener Dialog mit Fokus-Trap, kein window.confirm()
+     TIMER-SETTINGS PANEL
      ══════════════════════════════════════════════════════════════ -->
-<div id="confirm-dialog"
-     class="confirm-dialog"
-     role="alertdialog"
+<div id="timer-settings-panel"
+     class="timer-settings"
+     role="dialog"
      aria-modal="true"
-     aria-labelledby="confirm-title"
-     aria-describedby="confirm-msg">
-    <div class="confirm-dialog__box" id="confirm-dialog-box">
-        <p class="confirm-dialog__title" id="confirm-title">Aufgabe löschen</p>
-        <p class="confirm-dialog__msg"  id="confirm-msg"></p>
-        <div class="confirm-dialog__footer">
-            <button class="btn-secondary" id="btn-confirm-cancel">Abbrechen</button>
-            <button class="btn-danger"    id="btn-confirm-ok">Löschen</button>
+     aria-labelledby="settings-title">
+    <div class="timer-settings__box">
+        <div class="timer-settings__header">
+            <h2 class="timer-settings__title" id="settings-title">
+                <i data-lucide="timer" width="18" height="18" aria-hidden="true"></i>
+                Timer-Einstellungen
+            </h2>
+            <button class="timer-btn" id="btn-settings-close" aria-label="Einstellungen schließen">
+                <i data-lucide="x" width="18" height="18" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="settings-row">
+            <label class="field-label" for="setting-focus">Fokus-Session (Minuten)</label>
+            <div class="settings-input-wrap">
+                <input type="number" id="setting-focus" class="form-input settings-number"
+                       min="1" max="99" value="25" aria-describedby="setting-focus-hint">
+                <span class="settings-hint" id="setting-focus-hint">1 – 99 min</span>
+            </div>
+        </div>
+
+        <div class="settings-row">
+            <label class="field-label" for="setting-short">Kurzpause (Minuten)</label>
+            <div class="settings-input-wrap">
+                <input type="number" id="setting-short" class="form-input settings-number"
+                       min="1" max="60" value="5" aria-describedby="setting-short-hint">
+                <span class="settings-hint" id="setting-short-hint">1 – 60 min</span>
+            </div>
+        </div>
+
+        <div class="settings-row">
+            <label class="field-label" for="setting-long">Langpause (Minuten)</label>
+            <div class="settings-input-wrap">
+                <input type="number" id="setting-long" class="form-input settings-number"
+                       min="1" max="60" value="15" aria-describedby="setting-long-hint">
+                <span class="settings-hint" id="setting-long-hint">1 – 60 min</span>
+            </div>
+        </div>
+
+        <div class="modal__footer" style="margin-top: 20px;">
+            <button class="btn-secondary" id="btn-settings-cancel">Abbrechen</button>
+            <button class="btn-save"      id="btn-settings-save">Speichern</button>
         </div>
     </div>
 </div>
