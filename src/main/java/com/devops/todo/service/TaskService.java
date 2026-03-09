@@ -1,64 +1,103 @@
 package com.devops.todo.service;
 
-import com.devops.todo.entities.Task;
-import com.devops.todo.entities.TaskType;
+import com.devops.todo.dto.TaskDTO;
+import com.devops.todo.entity.Task;
+import com.devops.todo.entity.TaskType;
+import com.devops.todo.exception.TaskNotFoundException;
 import com.devops.todo.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class TaskService {
+
     private final TaskRepository taskRepository;
 
     public TaskService(TaskRepository taskRepository) {
         this.taskRepository = taskRepository;
     }
 
-    public List<Task> getAllTasks() {
-        return taskRepository.findAll();
+    public List<TaskDTO> getAllTasks() {
+        return taskRepository.findAll()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public Task saveTask(Task task) {
-        if (task.getType() == TaskType.STRATEGISCH) {
-            if (task.getDueDate() == null) {
-                throw new IllegalArgumentException("Für strategische Planung ist ein Zieldatum erforderlich.");
-            }
-        } else {
-            task.setDueDate(null);
-        }
+    public TaskDTO saveTask(TaskDTO taskDTO) {
+        validateTask(taskDTO);
 
-        return taskRepository.save(task);
+        Task task = convertToEntity(taskDTO);
+        Task savedTask = taskRepository.save(task);
+
+        return convertToDTO(savedTask);
     }
 
     public void deleteTask(Long id) {
+        if (!taskRepository.existsById(id)) {
+            throw new TaskNotFoundException(id);
+        }
         taskRepository.deleteById(id);
     }
 
-    // Task aktualisieren
-    public Task updateTask(Long id, Task updatedTask) {
+    public TaskDTO updateTask(Long id, TaskDTO updatedTaskDTO) {
+        validateTask(updatedTaskDTO);
 
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new TaskNotFoundException(id));
 
-        task.setTitle(updatedTask.getTitle());
-        task.setDescription(updatedTask.getDescription());
-        task.setType(updatedTask.getType());
-        task.setDueDate(updatedTask.getDueDate());
-        task.setCompleted(updatedTask.isCompleted());
+        task.setTitle(updatedTaskDTO.getTitle());
+        task.setDescription(updatedTaskDTO.getDescription());
+        task.setType(updatedTaskDTO.getType());
+        task.setDueDate(updatedTaskDTO.getDueDate());
+        task.setCompleted(updatedTaskDTO.isCompleted());
 
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        return convertToDTO(savedTask);
     }
 
-    // Task als erledigt markieren
-    public Task toggleComplete(Long id) {
-
+    public TaskDTO toggleComplete(Long id) {
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new TaskNotFoundException(id));
 
         task.setCompleted(!task.isCompleted());
 
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        return convertToDTO(savedTask);
+    }
+
+    private void validateTask(TaskDTO taskDTO) {
+        if (taskDTO.getType() == TaskType.STRATEGISCH && taskDTO.getDueDate() == null) {
+            throw new IllegalArgumentException("Für strategische Planung ist ein Zieldatum erforderlich.");
+        }
+
+        if (taskDTO.getType() != TaskType.STRATEGISCH) {
+            taskDTO.setDueDate(null);
+        }
+    }
+
+    private TaskDTO convertToDTO(Task task) {
+        return new TaskDTO(
+                task.getId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.getType(),
+                task.getDueDate(),
+                task.isCompleted()
+        );
+    }
+
+    private Task convertToEntity(TaskDTO taskDTO) {
+        Task task = new Task();
+        task.setId(taskDTO.getId());
+        task.setTitle(taskDTO.getTitle());
+        task.setDescription(taskDTO.getDescription());
+        task.setType(taskDTO.getType());
+        task.setDueDate(taskDTO.getDueDate());
+        task.setCompleted(taskDTO.isCompleted());
+        return task;
     }
 }
 
