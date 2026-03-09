@@ -31,6 +31,7 @@ git clone git@github.com:omerkulaksiz/DevOps-ToDo.git
 ./mvnw clean package -DskipTests
 
 docker compose up -d --build
+```
 
 API läuft unter:
 http://localhost:8080/api/tasks
@@ -44,6 +45,15 @@ http://localhost:8080
 PHPMyAdmin läuft unter:
 http://localhost:9999
 
+# REST API
+
+| Methode | Endpoint | Beschreibung |
+|--------|----------|-------------|
+| GET | /api/tasks | alle Tasks abrufen |
+| POST | /api/tasks | neuen Task erstellen |
+| PUT | /api/tasks/{id} | Task aktualisieren |
+| PATCH | /api/tasks/{id}/complete | Task als erledigt markieren |
+| DELETE | /api/tasks/{id} | Task löschen |
 
 
 
