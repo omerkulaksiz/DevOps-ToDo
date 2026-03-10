@@ -1,4 +1,4 @@
-package com.devops.todo.entities;
+package com.devops.todo.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.LocalDate;

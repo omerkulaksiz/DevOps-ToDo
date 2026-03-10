@@ -1,7 +1,8 @@
 package com.devops.todo.controller;
 
-import com.devops.todo.entities.Task;
+import com.devops.todo.dto.TaskDTO;
 import com.devops.todo.service.TaskService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -10,39 +11,36 @@ import java.util.List;
 @RequestMapping("/api/tasks")
 public class TaskController {
 
+
     private final TaskService taskService;
 
     public TaskController(TaskService taskService) {
         this.taskService = taskService;
     }
 
-    // GET /api/tasks
     @GetMapping
-    public List<Task> getAllTasks() {
-        return taskService.getAllTasks();
+    public ResponseEntity<List<TaskDTO>> getAllTasks() {
+        return ResponseEntity.ok(taskService.getAllTasks());
     }
 
-    // POST /api/tasks
     @PostMapping
-    public Task createTask(@RequestBody Task task) {
-        return taskService.saveTask(task);
+    public ResponseEntity<TaskDTO> createTask(@RequestBody TaskDTO taskDTO) {
+        return ResponseEntity.ok(taskService.saveTask(taskDTO));
     }
 
-    // DELETE /api/tasks/{id}
     @DeleteMapping("/{id}")
-    public void deleteTask(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         taskService.deleteTask(id);
+        return ResponseEntity.noContent().build();
     }
 
-    // PUT /api/tasks/{id}
     @PutMapping("/{id}")
-    public Task updateTask(@PathVariable Long id, @RequestBody Task task) {
-        return taskService.updateTask(id, task);
+    public ResponseEntity<TaskDTO> updateTask(@PathVariable Long id, @RequestBody TaskDTO taskDTO) {
+        return ResponseEntity.ok(taskService.updateTask(id, taskDTO));
     }
 
-    // PATCH /api/tasks/{id}/complete
     @PatchMapping("/{id}/complete")
-    public Task toggleComplete(@PathVariable Long id) {
-        return taskService.toggleComplete(id);
+    public ResponseEntity<TaskDTO> toggleComplete(@PathVariable Long id) {
+        return ResponseEntity.ok(taskService.toggleComplete(id));
     }
 }

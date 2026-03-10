@@ -1,4 +1,4 @@
-package com.devops.todo.entities;
+package com.devops.todo.entity;
 
 public enum TaskType {
     SOFORT,
