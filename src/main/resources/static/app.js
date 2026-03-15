@@ -10,6 +10,7 @@
     const TIMER_SETTINGS_KEY = 'aura_timer_settings_v1';
     const VALID_QUADS        = ['q1', 'q2', 'q3', 'q4'];
     const TITLE_ORIG         = document.title;
+    const API_BASE = '/api/tasks';
 
     /* ── Timer-Presets (in Sekunden) ───────────────────────────────── */
     const TIMER_PRESETS = {
@@ -65,35 +66,6 @@
     }
 
     /**
-     * localStorage sicher lesen.
-     * Fehlerfall: Safari Private Mode, gesperrter Storage, korruptes JSON.
-     * @returns {Task[]}
-     */
-    function loadFromStorage() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-            return parsed.filter(isValidTask);
-        } catch {
-            return [];
-        }
-    }
-
-    /**
-     * localStorage sicher schreiben.
-     * @param {Task[]} data
-     */
-    function saveToStorage(data) {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch {
-            showToast('Speichern fehlgeschlagen – Speicher nicht verfügbar.', true);
-        }
-    }
-
-    /**
      * ISO-Datum (YYYY-MM-DD) ohne Zeitzonenverschiebung formatieren.
      * new Date('2024-06-15') interpretiert als UTC → in GMT+2: 14.06.2024 (falsch).
      * Lösung: manuell in lokale Datumskomponenten zerlegen.
@@ -108,11 +80,143 @@
         });
     }
 
+    // Front-end and back-end field mapping functions
+    function mapTypeToQuad(type) {
+        switch (type) {
+            case 'SOFORT':
+                return 'q1';
+            case 'STRATEGISCH':
+                return 'q2';
+            case 'OPERATIV':
+                return 'q3';
+            case 'WARTESCHLANGE':
+                return 'q4';
+            default:
+                return 'q4';
+        }
+    }
+
+    function mapQuadToType(quad) {
+        switch (quad) {
+            case 'q1':
+                return 'SOFORT';
+            case 'q2':
+                return 'STRATEGISCH';
+            case 'q3':
+                return 'OPERATIV';
+            case 'q4':
+                return 'WARTESCHLANGE';
+            default:
+                return 'WARTESCHLANGE';
+        }
+    }
+
+    function mapBackendTask(task) {
+        return {
+            id: String(task.id),
+            title: task.title ?? '',
+            desc: task.description ?? '',
+            quad: mapTypeToQuad(task.type),
+            date: task.dueDate ?? null,
+            done: Boolean(task.completed),
+            createdAt: task.createdAt ?? null,
+            updatedAt: task.updatedAt ?? null,
+        };
+    }
+
+    function mapFrontendTaskToBackend(task) {
+        return {
+            title: task.title,
+            description: task.desc || '',
+            type: mapQuadToType(task.quad),
+            dueDate: task.quad === 'q2' ? (task.date || null) : null,
+            completed: Boolean(task.done),
+        };
+    }
+
+    // API request function
+    async function fetchTasks() {
+        const response = await fetch(API_BASE);
+
+        if (!response.ok) {
+            throw new Error('Aufgaben konnten nicht geladen werden.');
+        }
+
+        const data = await response.json();
+        return data.map(mapBackendTask);
+    }
+
+    async function createTaskApi(task) {
+        const response = await fetch(API_BASE, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(mapFrontendTaskToBackend(task))
+        });
+
+        if (!response.ok) {
+            throw new Error('Aufgabe konnte nicht erstellt werden.');
+        }
+
+        const data = await response.json();
+        return mapBackendTask(data);
+    }
+
+    async function updateTaskApi(task) {
+        const response = await fetch(`${API_BASE}/${task.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(mapFrontendTaskToBackend(task))
+        });
+
+        if (!response.ok) {
+            throw new Error('Aufgabe konnte nicht aktualisiert werden.');
+        }
+
+        const data = await response.json();
+        return mapBackendTask(data);
+    }
+
+    async function toggleCompleteApi(id) {
+        const response = await fetch(`${API_BASE}/${id}/complete`, {
+            method: 'PATCH'
+        });
+
+        if (!response.ok) {
+            throw new Error('Status konnte nicht geändert werden.');
+        }
+
+        const data = await response.json();
+        return mapBackendTask(data);
+    }
+
+    async function deleteTaskApi(id) {
+        const response = await fetch(`${API_BASE}/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Aufgabe konnte nicht gelöscht werden.');
+        }
+    }
+
+    async function loadTasksFromBackend() {
+        try {
+            State.db = await fetchTasks();
+            render();
+        } catch (err) {
+            showToast(err.message, true);
+        }
+    }
+
     /* ── Applikations-State ────────────────────────────────────────── */
     const timerSettings = loadTimerSettings();
 
     const State = {
-        db:            loadFromStorage(),
+        db:            [],
         timerId:       null,
         timeLeft:      timerSettings.focus,
         timerMode:     'focus',            // 'focus' | 'shortBreak' | 'longBreak'
@@ -688,10 +792,10 @@
     /* ── Task-Operationen ──────────────────────────────────────────── */
 
     /** Neue Aufgabe anlegen — mit vollständiger Validierung. */
-    function addTask() {
+    async function addTask() {
         const titleInput = document.getElementById('m-title');
         const titleError = document.getElementById('m-title-error');
-        const title      = titleInput.value.trim();
+        const title = titleInput.value.trim();
 
         if (!title) {
             titleInput.classList.add('form-input--error');
@@ -699,42 +803,41 @@
             titleInput.focus();
             return;
         }
+
         titleInput.classList.remove('form-input--error');
         titleError.classList.remove('field-error--visible');
 
         const quad = document.getElementById('m-quad').value;
         const date = document.getElementById('m-date').value;
 
-        // Immutables Push: neues Objekt, kein Mutieren
-        State.db = [
-            ...State.db,
-            {
-                id:        crypto.randomUUID(),   // kollisionssichere ID
-                title,
-                desc:      document.getElementById('m-desc').value.trim(),
-                quad,
-                date:      (quad === 'q2' && date) ? date : null,
-                done:      false,
-                createdAt: Date.now(),
-                doneAt:    null,
-            },
-        ];
+        const newTask = {
+            title,
+            desc: document.getElementById('m-desc').value.trim(),
+            quad,
+            date: (quad === 'q2' && date) ? date : null,
+            done: false,
+        };
 
-        saveToStorage(State.db);
-        closeModal();
-        render();
-        showToast(`"${title}" wurde erstellt.`);
+        try {
+            const createdTask = await createTaskApi(newTask);
+            State.db = [...State.db, createdTask];
+            closeModal();
+            render();
+            showToast(`"${createdTask.title}" wurde erstellt.`);
+        } catch (err) {
+            showToast(err.message, true);
+        }
     }
 
     /** Erledigungsstatus umschalten. Immutable Update. */
-    function toggleDone(id) {
-        State.db = State.db.map(t =>
-            t.id === id
-                ? { ...t, done: !t.done, doneAt: !t.done ? Date.now() : null }
-                : t
-        );
-        saveToStorage(State.db);
-        render();
+    async function toggleDone(id) {
+        try {
+            const updatedTask = await toggleCompleteApi(id);
+            State.db = State.db.map(t => t.id === id ? updatedTask : t);
+            render();
+        } catch (err) {
+            showToast(err.message, true);
+        }
     }
 
     /**
@@ -742,47 +845,100 @@
      * Immutable Update — konsistent mit allen anderen Operationen.
      * Kein render() → würde Fokus und Cursor-Position verlieren.
      */
-    function updateField(id, field, value) {
-        State.db = State.db.map(t =>
-            t.id === id ? { ...t, [field]: value } : t
-        );
-        saveToStorage(State.db);
-        // Nur abhängige Teile aktualisieren
-        renderStats();
-        renderArchive();
-        if (window.lucide) lucide.createIcons();
+    async function updateField(id, field, value) {
+        const task = State.db.find(t => t.id === id);
+        if (!task) return;
+
+        const updatedTask = {
+            ...task,
+            [field]: value
+        };
+
+        try {
+            const savedTask = await updateTaskApi(updatedTask);
+            State.db = State.db.map(t => t.id === id ? savedTask : t);
+            renderMatrix();
+            renderArchive();
+            renderStats();
+            if (window.lucide) lucide.createIcons();
+        } catch (err) {
+            showToast(err.message, true);
+        }
     }
 
-    /** Aufgabe löschen — mit 5-Sekunden Undo-Fenster im Toast. */
+    /** Aufgabe löschen mit 5-Sekunden-Undo vor endgültigem Backend-Delete. */
     function deleteTask(id) {
-        const idx  = State.db.findIndex(t => t.id === id);
+        const idx = State.db.findIndex(t => t.id === id);
         if (idx === -1) return;
+
         const task = State.db[idx];
 
-        // Sofort aus der DB entfernen
+        // If the previous deletion hasn't been truly committed to the backend yet, commit it first.
+        if (State.pendingUndo) {
+            finalizePendingDelete();
+        }
+
+        // Remove from the front-end interface first
         State.db = State.db.filter(t => t.id !== id);
-        saveToStorage(State.db);
         render();
 
-        // Undo-Referenz speichern
+        // Save information to be revoked
         State.pendingUndo = { task, index: idx };
+
+        // A 5-second countdown will begin; the database will be truly deleted after the timeout.
+        clearTimeout(State.undoTimer);
+        State.undoTimer = setTimeout(async () => {
+            await finalizePendingDelete();
+        }, 5000);
 
         showToast(
             `"${task.title}" gelöscht.`,
             false,
-            () => {
-                if (!State.pendingUndo) return;
-                const { task: t, index: i } = State.pendingUndo;
-                const newDb  = [...State.db];
-                const safeIdx = Math.min(i, newDb.length);
-                newDb.splice(safeIdx, 0, t);
-                State.db = newDb;
-                saveToStorage(State.db);
-                render();
-                State.pendingUndo = null;
-                showToast(`"${t.title}" wiederhergestellt.`);
-            }
+            () => undoDelete()
         );
+    }
+
+    function undoDelete() {
+        if (!State.pendingUndo) return;
+
+        clearTimeout(State.undoTimer);
+
+        const { task, index } = State.pendingUndo;
+        const newDb = [...State.db];
+        const safeIndex = Math.min(index, newDb.length);
+
+        newDb.splice(safeIndex, 0, task);
+        State.db = newDb;
+
+        State.pendingUndo = null;
+        State.undoTimer = null;
+
+        render();
+        showToast(`"${task.title}" wiederhergestellt.`);
+    }
+
+    async function finalizePendingDelete() {
+        if (!State.pendingUndo) return;
+
+        const { task } = State.pendingUndo;
+
+        try {
+            await deleteTaskApi(task.id);
+            State.pendingUndo = null;
+            State.undoTimer = null;
+        } catch (err) {
+            // If the backend deletion fails, restore the task to the interface.
+            const exists = State.db.some(t => t.id === task.id);
+            if (!exists) {
+                State.db = [...State.db, task];
+                render();
+            }
+
+            State.pendingUndo = null;
+            State.undoTimer = null;
+
+            showToast(err.message, true);
+        }
     }
 
     /* ── Drag & Drop ───────────────────────────────────────────────── */
@@ -797,29 +953,63 @@
             });
 
             zone.addEventListener('dragleave', e => {
-                // Nur entfernen wenn wirklich außerhalb der Drop-Zone
                 if (!zone.contains(e.relatedTarget)) {
                     zone.classList.remove('q-box--dragover');
                 }
             });
 
-            zone.addEventListener('drop', e => {
+            zone.addEventListener('drop', async e => {
                 e.preventDefault();
                 zone.classList.remove('q-box--dragover');
-                if (!State.draggedId) return;
 
-                const task = State.db.find(t => t.id === State.draggedId);
-                if (task && task.quad !== quad) {
-                    // Immutable Update
-                    State.db = State.db.map(t =>
-                        t.id === State.draggedId
-                            ? { ...t, quad, date: quad !== 'q2' ? null : t.date }
-                            : t
-                    );
-                    saveToStorage(State.db);
-                    render();
+                const draggedId = State.draggedId;
+                if (!draggedId) return;
+
+                const task = State.db.find(t => t.id === draggedId);
+                if (!task) {
+                    State.draggedId = null;
+                    return;
                 }
-                State.draggedId = null;
+
+                // If it's moved back to its original quadrant, no request will be made to the backend.
+                if (task.quad === quad) {
+                    State.draggedId = null;
+                    return;
+                }
+
+                const updatedTask = {
+                    ...task,
+                    quad: quad,
+                    date: quad === 'q2' ? task.date : null
+                };
+
+                try {
+                    const savedTask = await updateTaskApi(updatedTask);
+
+                    State.db = State.db.map(t =>
+                        t.id === draggedId ? savedTask : t
+                    );
+
+                    // This explicitly refreshes several areas, which is more stable than simply using `render()`.
+                    renderMatrix();
+                    renderArchive();
+                    renderStats();
+
+                    if (window.lucide) lucide.createIcons();
+                } catch (err) {
+                    showToast(err.message, true);
+                } finally {
+                    State.draggedId = null;
+                    State.dragOverId = null;
+
+                    document.querySelectorAll('.q-box--dragover').forEach(el =>
+                        el.classList.remove('q-box--dragover')
+                    );
+
+                    document.querySelectorAll('.task-node--drag-over-top, .task-node--drag-over-bottom').forEach(el =>
+                        el.classList.remove('task-node--drag-over-top', 'task-node--drag-over-bottom')
+                    );
+                }
             });
         });
     }
@@ -1385,15 +1575,16 @@
       window.load: stellt sicher dass alle defer-Scripts
       (lucide, jsPDF, Chart.js) vollständig geladen sind.
     */
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
         setupEventListeners();
         setupDropZones();
-        // Timer-Mode-Buttons initialisieren
+
         document.querySelectorAll('.timer-mode-btn').forEach(btn => {
             btn.classList.toggle('timer-mode-btn--active', btn.dataset.mode === State.timerMode);
         });
+
         updateTimerDisplay();
-        render();
+        await loadTasksFromBackend();
     });
 
 })(); // Ende IIFE
