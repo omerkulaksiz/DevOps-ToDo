@@ -75,10 +75,11 @@ This setup helps avoid configuration conflicts and keeps each environment indepe
 
 ## Run Locally
 
-### Start the application
+Create a local `.env` file based on `.env.example` and define your own environment variables.
+
+### Start the Application
 
 ```bash
-cd app
 ./mvnw spring-boot:run
 ```
 
@@ -90,30 +91,10 @@ http://localhost:8080
 
 ---
 
-## Run App Locally
-
-Create a local `.env` file based on `.env.example` and define your own environment variables.
-
-### Start the Application
-
-```bash
-./mvnw spring-boot:run
-```
-
----
-
 ### Run Tests
 
 ```bash
 ./mvnw test
-```
-
----
-
-### Build the Project
-
-```bash
-./mvnw clean package
 ```
 
 ---
