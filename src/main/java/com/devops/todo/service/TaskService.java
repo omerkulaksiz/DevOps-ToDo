@@ -8,7 +8,6 @@ import com.devops.todo.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class TaskService {
@@ -23,7 +22,7 @@ public class TaskService {
         return taskRepository.findAll()
                 .stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public TaskDTO saveTask(TaskDTO taskDTO) {
