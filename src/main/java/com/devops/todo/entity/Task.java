@@ -44,7 +44,8 @@ public class Task {
         updatedAt = LocalDateTime.now();
     }
 
-    public Task() {
+        public Task() {
+            // Default constructor required by JPA
     }
 
     public Long getId() {
